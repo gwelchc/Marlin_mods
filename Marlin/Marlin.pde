@@ -112,6 +112,8 @@
 // M220 S<factor in percent>- set speed factor override percentage
 // M221 S<factor in percent>- set extrude factor override percentage
 // M240 - Trigger a camera to take a photograph
+// M300 T<tune_id> - plays a precompiled tune. IDs lower than 128 are sound efects (beeps and so on)
+// M300 F<frequency> S<milliseconds> - play a tone
 // M301 - Set PID parameters P I and D
 // M302 - Allow cold extrudes
 // M303 - PID relay autotune S<temperature> sets the target temperature. (default target temperature = 150C)
@@ -203,6 +205,13 @@ bool Stopped=false;
 
 void get_arc_coordinates();
 bool setTargetedHotend(int code);
+#ifdef MUSICSUPPORT
+  void waitTillMillis(unsigned long int mil);
+  #if(defined MUSIC_INCLUDE_SOUND_EFFECTS || defined MUSIC_INCLUDE_MUSICS)
+    void play_melody(char melody_id);
+    void melody(int * frecuency, char * duration, char count);
+  #endif
+#endif //MUSICSUPPORT
 
 void serial_echopair_P(const char *s_P, float v)
     { serialprintPGM(s_P); SERIAL_ECHO(v); }
@@ -661,11 +670,15 @@ void process_commands()
       st_synchronize();
       codenum += millis();  // keep track of when we started waiting
       previous_millis_cmd = millis();
-      while(millis()  < codenum ){
-        manage_heater();
-        manage_inactivity();
-        LCD_STATUS;
-      }
+      #ifdef MUSICSUPPORT
+      	waitTillMillis(codenum);
+      #else
+      	while(millis()  < codenum ){
+      	  manage_heater();
+      	  manage_inactivity();
+      	  LCD_STATUS;
+      	}
+      #endif //MUSICSUPPORT
       break;
       #ifdef FWRETRACT  
       case 10: // G10 retract
@@ -1360,7 +1373,28 @@ void process_commands()
       }
     }
     break;
-
+    #ifdef MUSICSUPPORT
+    // M300 S<frequency Hz> P<duration ms>: play a note
+    // M300 T<music id>: play a predefined tune
+      case 300:
+        //unsigned int duration  = 0;
+        #if defined MUSIC_INCLUDE_SOUND_EFFECTS || defined MUSIC_INCLUDE_MUSICS
+        if(code_seen('T')){
+          play_melody((int)code_value());
+        }else
+        #endif
+        {
+          if(code_seen('S') && (codenum = code_value()) > 0){
+            if(code_seen('F')){
+              tone(MUSICPIN, code_value(), codenum);
+            }
+            codenum += millis();
+          }
+          waitTillMillis(codenum);
+          noTone(MUSICPIN);
+        }
+        break;
+    #endif //MUSICSUPPORT
     #ifdef PIDTEMP
     case 301: // M301
       {
@@ -1835,3 +1869,75 @@ bool setTargetedHotend(int code){
   }
   return false;
 }
+
+#ifdef MUSICSUPPORT
+  void waitTillMillis(unsigned long int mil){
+    while(millis()  < mil){
+      manage_heater();
+      manage_inactivity(1);
+      LCD_STATUS;
+    }
+  }
+  #if(defined MUSIC_INCLUDE_SOUND_EFFECTS || defined MUSIC_INCLUDE_MUSICS)
+    void play_melody(char melody_id){
+      switch(melody_id){
+      #ifdef MUSIC_INCLUDE_SOUND_EFFECTS  
+        case 0: //High Blink
+          {
+            int frecuency[] = {NOTE_D5, NOTE_FS5};
+            char duration[] = {8, 12};
+            melody(frecuency, duration, 2);
+          }
+          break;
+        case 1: // Error
+          {
+            int frecuency[] = {NOTE_B2, NOTE_B2, NOTE_B2};
+            char duration[] = {8, 8, 8};
+            melody(frecuency, duration, 3);
+          }
+          break;
+        case 127: //Victory!
+          {
+            int frecuency[] = {NOTE_A5, NOTE_A5, NOTE_A5, NOTE_A5, NOTE_F5, NOTE_G5, NOTE_A5, NOTE_G5, NOTE_A5};
+            char duration[] = {12, 12, 12, 4, 4, 4, 4, 16, 2};
+            melody(frecuency, duration, 9);
+          }
+          break;
+      #endif //MUSIC_INCLUDE_SOUND_EFFECTS
+      #ifdef MUSIC_INCLUDE_MUSICS
+        case 255: //Davy Jones Theme
+          {
+            int frecuency[] = {
+              NOTE_D4, NOTE_A3, NOTE_E4, NOTE_F4, NOTE_A3, NOTE_G4, NOTE_A4, NOTE_A3, NOTE_C5, NOTE_AS4, NOTE_A4, NOTE_A3,
+              0,
+              NOTE_A4, NOTE_A3, NOTE_AS4, NOTE_C5, NOTE_C4, NOTE_D5, NOTE_AS4, NOTE_A4, NOTE_A3, NOTE_G4, NOTE_A4, NOTE_A3,
+              0,
+              NOTE_AS4, NOTE_C4, NOTE_C5, NOTE_A4, NOTE_A3, NOTE_F4, NOTE_G4, NOTE_G3, NOTE_AS4, NOTE_A4, NOTE_F4, NOTE_A3,
+              NOTE_D4, NOTE_E4, NOTE_G3, NOTE_C4, NOTE_A3, NOTE_E4, NOTE_D4};
+            byte duration[] = {
+              4, 4, 4, 4, 4, 4, 4, 4, 8, 8, 4, 3,
+              8,
+              4, 4, 4, 4, 4, 8, 8, 4, 4, 4, 4, 3,
+              8,
+              4, 4, 4, 4, 4, 4, 4, 4, 8, 8, 4, 4,
+              4, 4, 4, 4, 2, 4, 3};
+            melody(frecuency, duration, 45);
+          }
+          break;
+      #endif //MUSIC_INCLUDE_MUSICS
+      }
+    }
+  
+    void melody(int * frecuency, char * duration, char count){
+      unsigned long codenum = 0;
+      for(int i = 0; i < count; i++){
+        codenum = NOTE_DURATION / duration[i];
+        if(frecuency[i] > 0){
+          tone(MUSICPIN, frecuency[i], codenum);
+        }
+        waitTillMillis(codenum * (1 + NOTE_PAUSE) + millis());
+        noTone(MUSICPIN);
+      }
+    }
+  #endif
+#endif //MUSICSUPPORT

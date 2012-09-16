@@ -245,6 +245,12 @@ const bool Z_ENDSTOPS_INVERTING = true; // set to true to invert the logic of th
 // please keep turned on if you can.
 //#define EEPROM_CHITCHAT
 
+// Music command support
+#define MUSICSUPPORT //Enable Music (M300) commands
+#define MUSIC_INCLUDE_SOUND_EFFECTS //Include sound effects (M300 T<128)
+#define MUSIC_PLAY_T0_UPON_START
+//#define MUSIC_INCLUDE_MUSICS //Include Music (M300 T>127), heavyweight
+
 //LCD and SD support
 //#define ULTRA_LCD  //general lcd support, also 16x2
 //#define SDSUPPORT // Enable SD Card Support in Hardware Console

@@ -653,6 +653,9 @@
 
 #ifdef MELZI
 #define SDSS               24
+#ifdef MUSICSUPPORT
+  #define MUSICPIN         27
+#endif
 #endif
 
 #endif

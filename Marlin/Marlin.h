@@ -200,4 +200,21 @@ extern unsigned char FanSpeed;
 // Handling multiple extruders pins
 extern uint8_t active_extruder;
 
+#ifdef VERBOSE
+  #define VERBOSELN(x) {MYSERIAL.print(x);MYSERIAL.write('\n');}
+  #define VERBOSE(x) MYSERIAL.print(x);
+  #if defined MUSICSUPPORT && defined MUSIC_INCLUDE_SOUND_EFFECTS
+    #define VERBOSE_ERROR play_melody(2)
+    #define VERBOSE_OK play_melody(1)
+  #else
+    #define VERBOSE_ERROR
+    #define VERBOSE_OK
+  #endif
+#else //VERBOSE
+  #define VERBOSELN(x)
+  #define VERBOSE(x)
+  #define VERBOSE_ERROR
+  #define VERBOSE_OK
+#endif //VERBOSE
+
 #endif

@@ -632,15 +632,15 @@
 #define X_ENABLE_PIN       14
 #define Y_ENABLE_PIN       14
 #define Z_ENABLE_PIN       26
-#define E0_ENABLE_PIN       14
+#define E0_ENABLE_PIN      14
 
 #else
 
-#define HEATER_BED_PIN       14  // (bed)
+#define HEATER_BED_PIN     14  // (bed)
 #define X_ENABLE_PIN       -1
 #define Y_ENABLE_PIN       -1
 #define Z_ENABLE_PIN       -1
-#define E0_ENABLE_PIN       -1
+#define E0_ENABLE_PIN      -1
 
 #endif
 
@@ -652,12 +652,11 @@
 #define SDSS               31
 
 #ifdef MELZI
-#define SDSS               24
+  #define SDSS             24
+#endif
 #ifdef MUSICSUPPORT
   #define MUSICPIN         27
 #endif
-#endif
-
 #endif
 
 

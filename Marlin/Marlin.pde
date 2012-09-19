@@ -29,6 +29,7 @@
 
 #include "Marlin.h"
 
+#include "pitches.h"
 #include "ultralcd.h"
 #include "planner.h"
 #include "stepper.h"
@@ -298,7 +299,11 @@ void setup()
   setup_killpin(); 
   setup_powerhold();
   MYSERIAL.begin(BAUDRATE);
-  SERIAL_PROTOCOLLNPGM("start");
+  #ifndef VERBOSE
+    SERIAL_PROTOCOLLNPGM("start");
+  #else
+    VERBOSELN(VERBOSE_WELCOME_MESSAGE);
+  #endif
   SERIAL_ECHO_START;
 
   // Check startup - does nothing if bootloader sets MCUSR to 0
@@ -337,7 +342,13 @@ void setup()
   {
     axis_steps_per_sqr_second[i] = max_acceleration_units_per_sq_second[i] * axis_steps_per_unit[i];
   }
-
+  
+  #ifdef VERBOSE
+    SERIAL_PROTOCOLLNPGM("start");
+  #endif
+  #ifdef MUSIC_PLAY_T0_UPON_START
+    play_melody(0);
+  #endif
 
   tp_init();    // Initialize temperature loop 
   plan_init();  // Initialize planner;
@@ -715,7 +726,6 @@ void process_commands()
       saved_feedmultiply = feedmultiply;
       feedmultiply = 100;
       previous_millis_cmd = millis();
-      
       enable_endstops(true);
       
       for(int8_t i=0; i < NUM_AXIS; i++) {
@@ -798,11 +808,15 @@ void process_commands()
       feedmultiply = saved_feedmultiply;
       previous_millis_cmd = millis();
       endstops_hit_on_purpose();
+      VERBOSELN("Homed!");
+      VERBOSE_OK;
       break;
     case 90: // G90
+      VERBOSELN("Coordinate system switched to absolute.");
       relative_mode = false;
       break;
     case 91: // G91
+      VERBOSELN("Coordinate system switched to relative.");
       relative_mode = true;
       break;
     case 92: // G92
@@ -857,6 +871,7 @@ void process_commands()
     break;
 #endif
     case 17:
+        VERBOSELN("All steppers ON (no movement allowed)");
         LCD_MESSAGEPGM(MSG_NO_MOVE);
         enable_x(); 
         enable_y(); 
@@ -956,6 +971,8 @@ void process_commands()
           {
             if (sensitive_pins[i] == pin_number)
             {
+              VERBOSELN("Error: the pin is restricted");
+              VERBOSE_ERROR;
               pin_number = -1;
               break;
             }
@@ -964,6 +981,11 @@ void process_commands()
           if (pin_number > -1)
           {              
             pinMode(pin_number, OUTPUT);
+            VERBOSE("Pin ");
+            VERBOSE(pin_number);
+            VERBOSE(" set to ");
+            VERBOSE(pin_status);
+            VERBOSELN("");
             digitalWrite(pin_number, pin_status);
             analogWrite(pin_number, pin_status);
           }
@@ -1011,7 +1033,8 @@ void process_commands()
       if(setTargetedHotend(109)){
         break;
       }
-      LCD_MESSAGEPGM(MSG_HEATING);   
+      LCD_MESSAGEPGM(MSG_HEATING);
+      VERBOSELN("Heating extruder up...");
       #ifdef AUTOTEMP
         autotemp_enabled=false;
       #endif
@@ -1079,6 +1102,8 @@ void process_commands()
         #endif //TEMP_RESIDENCY_TIME
         }
         LCD_MESSAGEPGM(MSG_HEATING_COMPLETE);
+        VERBOSELN("Done");
+        VERBOSE_OK;
         starttime=millis();
         previous_millis_cmd = millis();
       }
@@ -1086,6 +1111,7 @@ void process_commands()
     case 190: // M190 - Wait for bed heater to reach target.
     #if TEMP_BED_PIN > -1
         LCD_MESSAGEPGM(MSG_BED_HEATING);
+        VERBOSELN("Heating bed up...");
         if (code_seen('S')) setTargetBed(code_value());
         codenum = millis(); 
         while(isHeatingBed()) 
@@ -1107,6 +1133,8 @@ void process_commands()
           LCD_STATUS;
         }
         LCD_MESSAGEPGM(MSG_BED_DONE);
+        VERBOSELN("Done");
+        VERBOSE_OK;
         previous_millis_cmd = millis();
     #endif
         break;
@@ -1144,13 +1172,16 @@ void process_commands()
 		break;
         
     case 82:
+      VERBOSELN("Extruder set to absolute coordinates.");
       axis_relative_modes[3] = false;
       break;
     case 83:
+      VERBOSELN("Extruder set to relative coordinates.");
       axis_relative_modes[3] = true;
       break;
     case 18: //compatibility
     case 84: // M84
+      VERBOSELN("All steppers OFF (Free movement)");
       if(code_seen('S')){ 
         stepper_inactive_time = code_value() * 1000; 
       }
@@ -1206,36 +1237,35 @@ void process_commands()
           }
       }
       break;
+    case 114: // M114
+      VERBOSELN("Current Position:");
+      SERIAL_PROTOCOLPGM("X:");
+      SERIAL_PROTOCOL(current_position[X_AXIS]);
+      VERBOSELN("");
+      SERIAL_PROTOCOLPGM("Y:");
+      SERIAL_PROTOCOL(current_position[Y_AXIS]);
+      VERBOSELN("");
+      SERIAL_PROTOCOLPGM("Z:");
+      SERIAL_PROTOCOL(current_position[Z_AXIS]);
+      VERBOSELN("");
+      SERIAL_PROTOCOLPGM("E:");      
+      SERIAL_PROTOCOL(current_position[E_AXIS]);
+      VERBOSELN("");
+      SERIAL_PROTOCOLPGM(MSG_COUNT_X);
+      SERIAL_PROTOCOL(float(st_get_position(X_AXIS))/axis_steps_per_unit[X_AXIS]);
+      VERBOSELN("");
+      SERIAL_PROTOCOLPGM("Y:");
+      SERIAL_PROTOCOL(float(st_get_position(Y_AXIS))/axis_steps_per_unit[Y_AXIS]);
+      VERBOSELN("");
+      SERIAL_PROTOCOLPGM("Z:");
+      SERIAL_PROTOCOL(float(st_get_position(Z_AXIS))/axis_steps_per_unit[Z_AXIS]);
+      SERIAL_PROTOCOLLN("");
+      break;
     case 115: // M115
       SerialprintPGM(MSG_M115_REPORT);
       break;
     case 117: // M117 display message
       LCD_MESSAGE(cmdbuffer[bufindr]+5);
-      break;
-    case 114: // M114
-      SERIAL_PROTOCOLPGM("X:");
-      SERIAL_PROTOCOL(current_position[X_AXIS]);
-      SERIAL_PROTOCOLPGM("Y:");
-      SERIAL_PROTOCOL(current_position[Y_AXIS]);
-      SERIAL_PROTOCOLPGM("Z:");
-      SERIAL_PROTOCOL(current_position[Z_AXIS]);
-      SERIAL_PROTOCOLPGM("E:");      
-      SERIAL_PROTOCOL(current_position[E_AXIS]);
-      
-      SERIAL_PROTOCOLPGM(MSG_COUNT_X);
-      SERIAL_PROTOCOL(float(st_get_position(X_AXIS))/axis_steps_per_unit[X_AXIS]);
-      SERIAL_PROTOCOLPGM("Y:");
-      SERIAL_PROTOCOL(float(st_get_position(Y_AXIS))/axis_steps_per_unit[Y_AXIS]);
-      SERIAL_PROTOCOLPGM("Z:");
-      SERIAL_PROTOCOL(float(st_get_position(Z_AXIS))/axis_steps_per_unit[Z_AXIS]);
-      
-      SERIAL_PROTOCOLLN("");
-      break;
-    case 120: // M120
-      enable_endstops(false) ;
-      break;
-    case 121: // M121
-      enable_endstops(true) ;
       break;
     case 119: // M119
       #if (X_MIN_PIN > -1)
@@ -1265,6 +1295,14 @@ void process_commands()
       SERIAL_PROTOCOLLN("");
       break;
       //TODO: update for all axis, use for loop
+    case 120: // M120
+      VERBOSELN("Warning: Endstops disabled");
+      enable_endstops(false) ;
+      break;
+    case 121: // M121
+      VERBOSELN("Endstops enabled");
+      enable_endstops(true) ;
+      break;
     case 201: // M201
       for(int8_t i=0; i < NUM_AXIS; i++) 
       {
@@ -1874,22 +1912,29 @@ bool setTargetedHotend(int code){
   void waitTillMillis(unsigned long int mil){
     while(millis()  < mil){
       manage_heater();
-      manage_inactivity(1);
+      manage_inactivity();
       LCD_STATUS;
     }
   }
   #if(defined MUSIC_INCLUDE_SOUND_EFFECTS || defined MUSIC_INCLUDE_MUSICS)
     void play_melody(char melody_id){
       switch(melody_id){
-      #ifdef MUSIC_INCLUDE_SOUND_EFFECTS  
+      #ifdef MUSIC_INCLUDE_SOUND_EFFECTS 
         case 0: //High Blink
+          {
+            int frecuency[] = {NOTE_B4, NOTE_G7};
+            char duration[] = {16, 3};
+            melody(frecuency, duration, 2);
+          }
+          break;
+        case 1: // OK
           {
             int frecuency[] = {NOTE_D5, NOTE_FS5};
             char duration[] = {8, 12};
             melody(frecuency, duration, 2);
           }
           break;
-        case 1: // Error
+        case 2: // Error
           {
             int frecuency[] = {NOTE_B2, NOTE_B2, NOTE_B2};
             char duration[] = {8, 8, 8};
